@@ -1,0 +1,39 @@
+security:
+    # https://symfony.com/doc/current/security.html#where-do-users-come-from-user-providers
+    encoders:
+        App\Entity\Sales\User: argon2i
+
+    providers:
+        users:
+            entity:
+                class: 'App\Entity\Sales\User'
+                property: 'username'
+                manager_name: 'sales'
+    firewalls:
+        dev:
+            pattern: ^/(_(profiler|wdt)|css|images|js)/
+            security: false
+
+        login:
+            pattern:  ^/api/sales/(login|register)
+            stateless: true
+            anonymous: true
+            json_login:
+                check_path:               /api/sales/register
+                success_handler:          lexik_jwt_authentication.handler.authentication_success
+                failure_handler:          lexik_jwt_authentication.handler.authentication_failure
+
+        api:
+            pattern:   ^/api/sales/contact
+            stateless: true
+            guard:
+                authenticators:
+                    - lexik_jwt_authentication.jwt_token_authenticator
+
+
+
+    # Easy way to control access for large sections of your site
+    # Note: Only the *first* access control that matches will be used
+    access_control:
+      - {path: ^/api/sales/(login|register),   roles: [IS_AUTHENTICATED_ANONYMOUSLY] }
+      - {path: ^/api/sales/contact,            roles: IS_AUTHENTICATED_FULLY}

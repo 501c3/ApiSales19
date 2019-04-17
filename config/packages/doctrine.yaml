@@ -1,0 +1,70 @@
+parameters:
+    # Adds a fallback DATABASE_URL if the env var is not set.
+    # This allows you to run cache:warmup even if your
+    # environment variables are not available yet.
+    # You should not need to change this value.
+    env(DATABASE_URL): ''
+
+doctrine:
+    dbal:
+        default_connection: sales
+        connections:
+            competition:
+                dbname:   competition
+                driver:   'pdo_mysql'
+                server_version: '8.0'
+                host:     '%env(DATABASE_HOST)%'
+                port:     3306
+                user:     '%env(DATABASE_USER)%'
+                password: '%env(DATABASE_PASSWORD)%'
+                charset: utf8mb4
+            model:
+                dbname:   model
+                driver:   'pdo_mysql'
+                server_version: '8.0'
+                host:     '%env(DATABASE_HOST)%'
+                port:     3306
+                user:     '%env(DATABASE_USER)%'
+                password: '%env(DATABASE_PASSWORD)%'
+                charset: utf8mb4
+            sales:
+                dbname:   sales
+                driver:   'pdo_mysql'
+                server_version: '8.0'
+                host:     '%env(DATABASE_HOST)%'
+                port:     3306
+                user:     '%env(DATABASE_USER)%'
+                password: '%env(DATABASE_PASSWORD)%'
+                charset: utf8mb4
+
+    orm:
+        auto_generate_proxy_classes: '%kernel.debug%'
+        default_entity_manager: sales
+        entity_managers:
+            competition:
+                connection: competition
+                mappings:
+                    Competition:
+                        is_bundle: false
+                        type: annotation
+                        dir: '%kernel.project_dir%/src/Entity/Competition'
+                        prefix: 'App\Entity\Competition'
+                        alias: Competition
+            model:
+                connection: model
+                mappings:
+                    Model:
+                        is_bundle: false
+                        type: annotation
+                        dir:  '%kernel.project_dir%/src/Entity/Model'
+                        prefix: 'App\Entity\Model'
+                        alias: Model
+            sales:
+                connection: sales
+                mappings:
+                    Sales:
+                        is_bundle: false
+                        type: annotation
+                        dir:  '%kernel.project_dir%/src/Entity/Sales'
+                        prefix: 'App\Entity\Sales'
+                        alias: Sales
