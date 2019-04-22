@@ -1,14 +1,23 @@
 <?php
 
+use App\Entity\Sales\Channel;
+use App\Entity\Sales\Tag;
 use App\Entity\Sales\User;
+use App\Entity\Sales\Workarea;
+use App\Repository\Sales\ChannelRepository;
+use App\Repository\Sales\TagRepository;
 use App\Repository\Sales\UserRepository;
-use Behat\Behat\Tester\Exception\PendingException;
+use App\Repository\Sales\WorkareaRepository;
+use Behat\Behat\Context\Context;
+use Behat\Behat\Hook\Scope\BeforeFeatureScope;
 use App\AppException;
 use Behat\Gherkin\Node\PyStringNode;
-use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\EntityManager;
+use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTManager;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\KernelInterface;
+
 
 
 /**
@@ -17,10 +26,18 @@ use Symfony\Component\HttpKernel\KernelInterface;
  * 
  * @see http://behat.org/en/latest/quick_start.html
  */
-// class UserContext implements Imbo\BehatApiExtension\Context\ApiClientAwareContext
-class UserContext implements Behat\Symfony2Extension\Context\KernelAwareContext
+class UserContext implements Context
 {
-    use \Behat\Symfony2Extension\Context\KernelDictionary;
+    use TraitSetup;
+
+    /** @var Request */
+    protected $request;
+
+    /** @var Response */
+    protected $response;
+
+    /** @var array */
+    protected $content;
 
 
     /** @var string */
@@ -29,92 +46,89 @@ class UserContext implements Behat\Symfony2Extension\Context\KernelAwareContext
     /** @var string */
     private $path = "";
 
-    /** var array|null */
-    private $body ;
-
-    /**@var Response|null*/
-    private $response;
-
-    /** @var Request */
-    private $request;
-
     /** @var string */
     private $password;
 
     /** @var User */
     private $user;
 
-    /** @var EntityManagerInterface */
+    /** @var EntityManager */
     private static $em;
 
+    /** @var EntityManager */
+    private $entityManager;
 
+    /** @var string */
+    private $scheme;
 
+    /** @var KernelInterface  */
+    private $kernel;
 
-
+    /** @var JWTManager|object  */
     private $JWTTokenManager;
 
+    /** @var UserRepository */
+    private $userRepository;
+
+    /** @var WorkareaRepository */
+    private $workareaRepository;
+
+    /** @var TagRepository */
+    private $tagRepository;
+
+    /** @var ChannelRepository */
+    private $channelRepository;
+
+    /**
+     * UserContext constructor.
+     * @param KernelInterface $kernel
+     */
     public function __construct(KernelInterface $kernel)
     {
-        $this->kernel = $kernel;
-        $this->JWTTokenManager= $this->getContainer()->get('lexik_jwt_authentication.jwt_manager');
-        $em = $kernel->getContainer()->get('doctrine.orm.sales_entity_manager');
-        self::$em = $em;
+        $this->kernel=$kernel;
+        $this->entityManager = $this->kernel->getContainer()->get('doctrine.orm.sales_entity_manager');
+        $this->userRepository = $this->entityManager->getRepository(User::class);
+        $this->workareaRepository=$this->entityManager->getRepository(Workarea::class);
+        $this->tagRepository = $this->entityManager->getRepository(Tag::class);
+        $this->channelRepository=$this->entityManager->getRepository(Channel::class);
     }
 
-    /** @BeforeScenario
+
+    /**
+     * @BeforeFeature
+     * @param BeforeFeatureScope $scope
      * @throws \Doctrine\DBAL\DBALException
      */
+    public static function beforeFeature(BeforeFeatureScope $scope)
+    {
+        if($scope->getFeature()->getFile()=="features/user.feature") {
+            /** @noinspection PhpUnhandledExceptionInspection */
+            self::setupChannelInventory();
+            $conn = self::$em->getConnection();
+            $conn->exec('SET FOREIGN_KEY_CHECKS = 0');
+            $conn->exec('TRUNCATE TABLE user');
+            $conn->exec('SET FOREIGN_KEY_CHECKS = 1');
+        }
+    }
+
+
     public function beforeScenario()
-    {
-        $conn=self::$em->getConnection();
-        $conn->exec('SET FOREIGN_KEY_CHECKS = 0');
-        $conn->exec('TRUNCATE TABLE user');
-        $conn->exec('SET FOREIGN_KEY_CHECKS = 1');
-    }
-
-    /** AfterFeature */
-    public static function afterFeature()
-    {
-
-    }
-
-
-
-    /** @BeforeScenario */
-    public function prepareForScenario()
     {
         $this->path="";
         $this->method="";
         $this->scheme="http";
-        $this->body= null;
-        $this->response=null;
         $this->request=null;
-    }
-
-
-    /**
-     * @Given the request body is:
-     * @param PyStringNode $pyStringNode
-     */
-    public function theRequestBodyIs(PyStringNode $pyStringNode)
-    {
-        $string = $pyStringNode->getRaw();
-        $this->body = json_decode($string,true, 5 );
-        if(!$this->body) {
-            throw new RuntimeException("Syntax error in PyStringNode.");
-        }
     }
 
     /**
      * @Given I am registered as:
+     * @param PyStringNode $node
      * @throws AppException
      */
     public function iAmRegisteredAs(PyStringNode $node)
     {
-        /** @var UserRepository $repo */
-        $repo = self::$em->getRepository(User::class);
         $content = json_decode($node->getRaw(),true);
-        $user=$repo->post($content);
+        $user=$this->userRepository->post($content);
         if(!$user) {
             throw new LogicException('User is not added to the database.');
         }
@@ -123,32 +137,18 @@ class UserContext implements Behat\Symfony2Extension\Context\KernelAwareContext
 
 
     /**
-     * @Given the request body contains :username and password
+     * @Given a previous registration for :username
      * @param $username
-     * @throws AppException
-     * @throws \Doctrine\ORM\ORMException
-     * @throws \Doctrine\ORM\OptimisticLockException
      */
-    public function theRequestBodyContainsAndPassword($username)
+    public function aPreviousRegistrationFor($username)
     {
-        /** @var User $user */
-        $user = self::$em->getRepository(User::class)->findOneBy(['username'=>$username]);
-        if(!$user){
-            throw new AppException(AppException::statusText[AppException::APP_NO_USER]);
-        }
-        $password = 'secret password';
-        $user->setPassword($password);
-        $this->body=['username'=>$username,'password'=>$password];
-        self::$em->flush();
+       $user = $this->userRepository->findOneBy(['username'=>$username]);
+       if(!$user) {
+           throw new LogicException("Previous registration for $username was not found.");
+       }
+       $this->user=$user;
     }
 
-    /**
-     * @Given the request body contains credentials :username and :password
-     */
-    public function theRequestBodyContainsCredentialsAnd($username, $password)
-    {
-        $this->body = ['username'=>$username,'password'=>$password];
-    }
 
 
     /**
@@ -157,96 +157,10 @@ class UserContext implements Behat\Symfony2Extension\Context\KernelAwareContext
      * @throws \Doctrine\ORM\ORMException
      * @throws \Doctrine\ORM\OptimisticLockException
      */
-    public function aTemporaryPasswordIsSaved($hash)
+    public function aTemporaryPasswordIsSaved(string $hash)
     {
         $this->user->setPassword($hash);
-        self::$em->flush();
-    }
-
-    /**
-     * @Given the password saved is :pin
-     */
-    public function thePasswordSavedIs($pin)
-    {
-
-    }
-
-
-    /**
-     * @When I request :url with method :method
-     * @param $url
-     * @param $method
-     * @throws Exception
-     */
-    public function iRequestWithMethod($url, $method)
-    {
-        $request = Request::create($url,$method,[],[],[],[],$this->body);
-        try{
-          $this->response = $this->kernel->handle($request);
-        } catch(Exception $e) {
-            switch($e->getCode()) {
-
-                case \App\AppException::APP_REDUNDANT_USER:
-                    return;
-            }
-            throw $e;
-        }
-
-    }
-
-    /**
-     * @Then the response code is :value
-     */
-    public function theResponseCodeIs($value)
-    {
-        $code=$this->response->getStatusCode();
-        if($value!=$code) {
-            throw new LogicException("Status code found: $code.");
-        }
-    }
-
-    /**
-     * @Then the response status line is :expected
-     */
-    public function theResponseStatusLineIs($expected)
-    {
-        $statusCode = $this->response->getStatusCode();
-        $statusLine = Response::$statusTexts[$statusCode];
-        if($statusLine!==$expected)
-        {
-            throw new LogicException("Expected $expected as statusLine but found $statusLine");
-        }
-    }
-
-
-    /**
-     * @Then the :key response header contains :value
-     * @param $key
-     * @param $value
-     * @throws AppException
-     */
-    public function theResponseHeaderContains($key, $value)
-    {
-        $hasKey=$this->response->headers->has($key);
-        if(!$hasKey) {
-            throw new AppException("There is no key for $value");
-        }
-
-    }
-
-    /**
-     * @Then I have valid jwt
-     */
-    public function iHaveValidJwt()
-    {
-        $content = json_decode($this->response->getContent(),true);
-        /** @var User $user */
-        $user = self::$em->getRepository(User::class)->find($content['id']);
-        $testToken = $this->JWTTokenManager->create($user);
-        $responseToken = substr($this->response->headers->get('Authorization'),strlen('Bearer '));
-        if(strcmp($testToken,$responseToken)!==0){
-            throw new LogicException("There is an error in creating the Jason Web Token.");
-        }
+        $this->entityManager->flush();
     }
 
     /**
@@ -258,7 +172,7 @@ class UserContext implements Behat\Symfony2Extension\Context\KernelAwareContext
     {
         $content = json_decode($string,true);
         $email = $content['email'];
-        $repository = self::$em->getRepository(User::class);
+        $repository = $this->entityManager->getRepository(User::class);
         $user=$repository->findOneBy(['email'=>$email]);
         if(!$user) {
            $user = new User();
@@ -270,7 +184,7 @@ class UserContext implements Behat\Symfony2Extension\Context\KernelAwareContext
            self::$em->persist($user);
            self::$em->flush();
         }
-        $this->body=$content;
+        //$this->body=$content;
     }
 
     /**
@@ -283,7 +197,160 @@ class UserContext implements Behat\Symfony2Extension\Context\KernelAwareContext
     }
 
 
+    /**
+     * @When I request :url with method :method and credentials:
+     * @param $url
+     * @param $method
+     * @param PyStringNode $node
+     * @throws Exception
+     */
+    public function iRequestWithMethodAndCredentials($url, $method, PyStringNode $node)
+    {
+        /** @var array $credentials */
+        $credentials = json_decode($node->getRaw(),true);
+        if(!$credentials) {
+            throw new InvalidArgumentException('JSON formatting error in credentials');
+        }
+        $request = Request::create($url,$method,[],[],[],[],$credentials);
+        $this->response = $this->kernel->handle($request);
+    }
 
+
+    /**
+     * @Then encrypted :password is saved for :username
+     * @param string $password
+     * @param string $username
+     */
+    public function encryptedIsSavedFor(string $password, string $username)
+    {
+        $this->password = $password;
+        /** @var User $user */
+
+        $user = $this->userRepository->findOneBy(['username'=>$username]);
+        if(!$user->getPassword()) {
+            throw new LogicException("Encrypted password was not saved.");
+        }
+        if($password == $user->getPassword()) {
+            throw new LogicException('Password is not encrypted (correctly).');
+        }
+    }
+
+    /**
+     * @Then password is cleared for :username
+     * @param string $username
+     * @throws AppException
+     */
+    public function passwordIsClearedFor(string $username)
+    {
+        /** @var User $user */
+        $user = $this->entityManager->getRepository(User::class)->findOneBy(['username'=>$username]);
+        if(!$user->getUsername()!=null) {
+            throw new AppException("Password for $user was not cleared.");
+        }
+    }
+
+
+    /**
+     * @Then a new :tag workarea is created for :channel and :username
+     * @param string $tag
+     * @param string $channel
+     * @param string $username
+     * @throws \Doctrine\ORM\ORMException
+     * @throws \Doctrine\ORM\OptimisticLockException
+     */
+    public function aNewWorkareaIsCreatedForAnd(string $tag, string $channel, string $username)
+    {
+        $_tag = $this->tagRepository->fetch($tag);
+        $_channel = $this->channelRepository->findOneBy(['name'=>$channel]);
+        $_user = $this->userRepository->findOneBy(['username'=>$username]);
+        $workarea = $this->workareaRepository->findOneBy(['tag'=>$_tag, 'channel'=>$_channel, 'user'=>$_user]);
+        if(!$workarea) {
+            throw new LogicException("workarea was not defined for ($tag,$channel,$username)");
+        }
+    }
+
+
+    /**
+     * @Given the request body is:
+     * @param PyStringNode $pyStringNode
+     */
+    public function theRequestBodyIs(PyStringNode $pyStringNode)
+    {
+        $this->content = json_decode($pyStringNode->getRaw(),true, 5);
+        if(!$this->content) {
+            throw new RuntimeException("Syntax error in PyStringNode.");
+        }
+    }
+
+
+    /**
+     * @When I request :url with method :method
+     * @param $url
+     * @param $method
+     * @throws Exception
+     */
+    public function iRequestWithMethod($url, $method)
+    {
+        $request = Request::create($url,$method,[],[],[],[],$this->content);
+        try{
+            $this->response = $this->kernel->handle($request);
+        } catch(Exception $e) {
+            switch($e->getCode()) {
+                case AppException::APP_REDUNDANT_USER:
+                    return;
+            }
+            throw $e;
+        }
+    }
+
+    /**
+     * @Then the response code is :value
+     * @param $value
+     */
+    public function theResponseCodeIs($value)
+    {
+        $code=$this->response->getStatusCode();
+        if($value!=$code) {
+            throw new LogicException("Status code found: $code.");
+        }
+    }
+
+    /**
+     * @Then the :key response header is :value
+     * @param $key
+     * @param $expected
+     * @throws AppException
+     */
+    public function theResponseHeaderIs($key, $expected)
+    {
+        $found = $this->response->headers->get($key);
+        if($key==='Authorization') {
+            $token = substr($found,strlen('Bearer '));
+            file_put_contents('features/authorization-jwt.txt',$token);
+        }
+        if(!$found) {
+
+            throw new AppException("Header key: $key was not found.");
+        }
+
+        if(strpos($found,$expected)===false) {
+            throw new AppException("Header format is incorrect");
+        }
+    }
+
+    /**
+     * @Then the response status line is :expected
+     * @param $expected
+     */
+    public function theResponseStatusLineIs($expected)
+    {
+        $statusCode = $this->response->getStatusCode();
+        $statusLine = Response::$statusTexts[$statusCode];
+        if($statusLine!==$expected)
+        {
+            throw new LogicException("Expected $expected as statusLine but found $statusLine");
+        }
+    }
 
     /**
      * @Then the response body contains JSON:
@@ -298,51 +365,5 @@ class UserContext implements Behat\Symfony2Extension\Context\KernelAwareContext
             throw new AppException('The response body did not match what was expected.');
         }
     }
-
-
-    /**
-     * @Then encrypted :password is saved
-     * @param $password
-     */
-    public function encryptedIsSaved($password)
-    {
-        $this->password = $password;
-
-        $email = $this->body['email'];
-        /** @var User $user */
-        $user = self::$em->getRepository(User::class)->findOneBy(['username'=>$email]);
-        if(!$user->getPassword()) {
-            throw new LogicException("Password was not saved.");
-        }
-//        if($password !== $user->getPassword()) {
-//            throw new LogicException('Password is not encrypted correctly.');
-//        }
-    }
-
-    /**
-     * @Then I receive email with :pin
-     */
-    public function iReceiveEmailWith($pin)
-    {
-        throw new PendingException("TODO: Send $pin via email in App/Controller/SalesUserController");
-    }
-
-
-    /**
-     * @Then saved password is cleared
-     */
-    public function savedPasswordIsCleared()
-    {
-        $email = $this->body['username'];
-        /** @var User $user */
-        $user = self::$em->getRepository(User::class)->findOneBy(['username'=>$email]);
-        if(!is_null($user->getPassword())) {
-            throw new LogicException('The users password was not cleared after successful login');
-        }
-    }
-
-
-
-
 
 }

@@ -9,6 +9,7 @@
 symfony.lock
 bin
 composer.lock
+features/authorization-jwt.txt
 ###< symfony/framework-bundle ###
 ###> behat/symfony2-extension ###
 behat.yml

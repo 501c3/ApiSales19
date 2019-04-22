@@ -42,7 +42,7 @@ class JwtTokenAuthenticator extends AbstractGuardAuthenticator
 
     public function supports(Request $request)
     {
-        // TODO: Implement supports() method.
+
     }
 
     public function getCredentials(Request $request)
@@ -70,7 +70,7 @@ class JwtTokenAuthenticator extends AbstractGuardAuthenticator
 
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception)
     {
-        // TODO: Implement onAuthenticationFailure() method.
+
     }
 
     public function onAuthenticationSuccess(Request $request, TokenInterface $token, $providerKey)
@@ -85,6 +85,6 @@ class JwtTokenAuthenticator extends AbstractGuardAuthenticator
 
     public function start(Request $request, AuthenticationException $authException = null)
     {
-        // TODO: Implement start() method.
+
     }
 }

@@ -96,4 +96,9 @@ class UserRepository extends ServiceEntityRepository implements UserLoaderInterf
         $result=$this->findOneBy(['username'=>$username]);
         return $result;
     }
+
+    public function getEntityManager()
+    {
+        return $this->_em;
+    }
 }

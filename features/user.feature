@@ -22,26 +22,13 @@ Feature:
     When I request "/api/sales/register" with method "POST"
     Then the response code is "201"
     And the response status line is "Created"
-    And the "Authorization" response header contains "Bearer \w*"
-    And I have valid jwt
+    And the "Authorization" response header is "Bearer "
+    And a new "competition" workarea is created for "georgia-dancesport" and "user@email.com"
+
 
 
     Scenario: I send redundant registration information and am sent temp password and redirected.
-      Given I am registered as:
-      """
-      {
-        "name": {"title":"","first":"New","middle":"","last":"User","suffix":""},
-        "email": "user@email.com",
-        "phone": "(999) 999-9999",
-        "mobile": "(678) 999-9999",
-        "address": {"country":"USA",
-                    "organization": "",
-                    "street": "123 Street Address",
-                    "city": "City",
-                    "state": "GA",
-                    "postal": "00000"}
-       }
-      """
+      Given a previous registration for "user@email.com"
       And the request body is:
       """
       {
@@ -67,53 +54,34 @@ Feature:
          "route": "/api/sales/login"
        }
       """
-      And encrypted "password" is saved
-      And I receive email with "password"
+      And encrypted "password" is saved for "user@email.com"
 
 
     Scenario: I login with valid credentials
-      Given I am registered as:
+      Given a previous registration for "user@email.com"
+      And a temporary password "$argon2i$v=19$m=1024,t=2,p=2$UFBidGhxRUlmWks5R3d2Qw$w+hkawfHsYxdmC8ulniRU3f0NSAXdWozDEjPuhEm9bY" is saved
+      When I request "/api/sales/login" with method "POST" and credentials:
       """
       {
-        "name": {"title":"","first":"New","middle":"","last":"User","suffix":""},
-        "email": "user@email.com",
-        "phone": "(999) 999-9999",
-        "mobile": "(678) 999-9999",
-        "address": {"country":"USA",
-                    "organization": "",
-                    "street": "123 Street Address",
-                    "city": "City",
-                    "state": "GA",
-                    "postal": "00000"}
-       }
+        "username": "user@email.com",
+        "password": "1234"
+      }
       """
-      And a temporary password "$argon2i$v=19$m=1024,t=2,p=2$UFBidGhxRUlmWks5R3d2Qw$w+hkawfHsYxdmC8ulniRU3f0NSAXdWozDEjPuhEm9bY" is saved
-      And the request body contains credentials "user@email.com" and "1234"
-      When I request "/api/sales/login" with method "POST"
       Then the response code is "200"
-      And saved password is cleared
-      And I have valid jwt
+      And the "Authorization" response header is "Bearer"
+      And password is cleared for "user@email.com"
 
 
 
   Scenario: I send invalid username to recontact registration
-      Given I am registered as:
+      Given a previous registration for "user@email.com"
+      And a temporary password "$argon2i$v=19$m=1024,t=2,p=2$UFBidGhxRUlmWks5R3d2Qw$w+hkawfHsYxdmC8ulniRU3f0NSAXdWozDEjPuhEm9bY" is saved
+      When I request "/api/sales/login" with method "POST" and credentials:
       """
       {
-        "name": {"title":"","first":"New","middle":"","last":"User","suffix":""},
-        "email": "user@email.com",
-        "phone": "(999) 999-9999",
-        "mobile": "(678) 999-9999",
-        "address": {"country":"USA",
-                    "organization": "",
-                    "street": "123 Street Address",
-                    "city": "City",
-                    "state": "GA",
-                    "postal": "00000"}
-       }
+        "username": "baduser@email.com",
+        "password": "1234"
+      }
       """
-      And a temporary password "$argon2i$v=19$m=1024,t=2,p=2$UFBidGhxRUlmWks5R3d2Qw$w+hkawfHsYxdmC8ulniRU3f0NSAXdWozDEjPuhEm9bY" is saved
-      And the request body contains credentials "baduser@email.com" and "1234"
-      When I request "/api/sales/login" with method "POST"
       Then the response code is "401"
       And the response status line is "Unauthorized"
