@@ -11,9 +11,38 @@ namespace App\Repository\Model;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Common\Persistence\ManagerRegistry;
 use App\Entity\Model\Person;
+use Doctrine\ORM\Query\ResultSetMappingBuilder;
+
 
 class PersonRepository extends ServiceEntityRepository
 {
+
+    const SQL = <<<'EOD'
+# noinspection SqlNoDataSourceInspection
+SELECT id, years, `describe` FROM person
+WHERE JSON_EXTRACT(`describe`, "$.designate")=?
+  AND JSON_EXTRACT(`describe`, "$.proficiency")=?
+  AND JSON_EXTRACT(`describe`, "$.sex")=?
+  AND JSON_EXTRACT(`describe`, "$.status")=?
+  AND JSON_EXTRACT(`describe`, "$.type")=?
+  AND years=?
+EOD;
+
+// TODO: Return to DQL queries with JSON when there are working JSON functions.
+//       Presently native queries are used.
+
+
+    const   FIELD_DESIGNATE=1,
+            FIELD_PROFICIENCY=2,
+            FIELD_SEX=3,
+            FIELD_STATUS=4,
+            FIELD_TYPE=5,
+            FIELD_YEARS=6;
+
+    /**
+     * PersonRepository constructor.
+     * @param ManagerRegistry $registry
+     */
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Person::class);
@@ -21,35 +50,25 @@ class PersonRepository extends ServiceEntityRepository
 
     /**
      * @param array $person
-     * @return Person|null
-     * @throws \Doctrine\ORM\NoResultException
+     * @return Person
      * @throws \Doctrine\ORM\NonUniqueResultException
      */
     public function fetch(array $person) : ?Person
     {
-        $type = $person['type'];
-        $status = $person['status'];
-        $sex = $person['sex'];
-        $proficiency = $person['proficiency'];
-        $years = $person['years'];
-        $designate = $person['designate'];
-        $qb = $this->createQueryBuilder('person');
-        $qb->select('p')
-            ->from('person','p')
-            ->where("JSON_EXTRACT(person.`describe`,'$.type')=:type")
-            ->andWhere("JSON_EXTRACT(p.`describe`,'$.status')=:status")
-            ->andWhere("JSON_EXTRACT(p.`describe`,'$.sex')=:sex")
-            ->andWhere("JSON_EXTRACT(p.`describe`,'$.proficiency'=:proficiency")
-            ->andWhere("JSON_EXTRACT(p.`describe`,'$.years'=:years")
-            ->andWhere("JSON_EXTRACT(p.`describe`,'$.designate'=:designate");
-        $query = $qb->getQuery();
-        $query->setParameters([':type'=>$type,
-                               ':status'=>$status,
-                               ':sex'=>$sex,
-                               ':proficiency'=>$proficiency,
-                               ':years'=>$years,
-                               ':designate'=>$designate]);
-        $result = $query->getSingleResult();
-        return $result;
+        $rsm = new ResultSetMappingBuilder($this->_em);
+        $rsm->addRootEntityFromClassMetadata(Person::class,'p');
+        $rsm->addFieldResult('p','id','id');
+        $rsm->addFieldResult('p','years','years');
+        $rsm->addFieldResult('p','describe', 'describe');
+        $query = $this->_em->createNativeQuery(self::SQL,$rsm);
+        $query->setParameters([
+            self::FIELD_DESIGNATE=>$person['designate'],
+            self::FIELD_PROFICIENCY=>$person['proficiency'],
+            self::FIELD_SEX=>$person['sex'],
+            self::FIELD_STATUS=>$person['status'],
+            self::FIELD_TYPE=>$person['type'],
+            self::FIELD_YEARS=>$person['years']
+            ]);
+        return $query->getOneOrNullResult();
     }
 }

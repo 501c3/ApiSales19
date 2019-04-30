@@ -30,24 +30,6 @@ class UserRepository extends ServiceEntityRepository implements UserLoaderInterf
 
     /**
      * @param array $content
-     * @throws \Doctrine\ORM\ORMException
-     * @throws \Doctrine\ORM\OptimisticLockException
-     */
-  public function put(array $content)
-  {
-      /** @var User $old */
-      $old = $this->find($content['id']);
-      unset($content['id']);
-      $name = $this->nameField($content);
-      $old->setName($name)
-          ->setUsername($content['email'])
-          ->setInfo($content);
-      $this->getEntityManager()->flush();
-  }
-
-
-    /**
-     * @param array $content
      * @return User|null
      * @throws AppException
      * @throws \Exception
@@ -71,6 +53,34 @@ class UserRepository extends ServiceEntityRepository implements UserLoaderInterf
             ->setInfo($content)
             ->setCreatedAt(new \DateTime('now'));
       $this->_em->persist($user);
+      $this->_em->flush();
+      return $user;
+  }
+
+    /**
+     * @param array $content
+     * @return User
+     * @throws AppException
+     * @throws \Doctrine\ORM\ORMException
+     * @throws \Doctrine\ORM\OptimisticLockException
+     * @throws \Exception
+     */
+  public function put(array $content): User
+  {
+      $name = $this->nameField($content);
+      $email = $content['email'];
+      /** @var User $user */
+      $user = $this->find($content['id']);
+      if(!$user) {
+          $code = AppException::APP_NO_USER;
+          $message = AppException::statusText[$code];
+          throw new AppException($message,$code);
+      }
+      unset($content['id']);
+      $user->setName($name)
+          ->setUsername($email)
+          ->setInfo($content)
+          ->setUpdatedAt(new \DateTime('now'));
       $this->_em->flush();
       return $user;
   }

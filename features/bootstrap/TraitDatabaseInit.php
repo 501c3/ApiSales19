@@ -13,9 +13,9 @@ use Symfony\Component\HttpKernel\KernelInterface;
  * Time: 9:25 AM
  */
 
-trait TraitSetup {
+trait TraitDatabaseInit {
     /** @var KernelInterface */
-   private static $channelSetup = [
+   private static $channel = [
         'name' => 'georgia-dancesport',
         'heading'=> ['name'=>'Georgia DanceSport Competition & ISTD Medal Exams',
                      'venue'=>'Ballroom Impact',
@@ -49,42 +49,109 @@ trait TraitSetup {
         ]
     ];
 
-   /** @var EntityManagerInterface */
-    private static $em;
+   private static $parameters=[
+       "ISTD Medal Exams-2019"=>[
+           "16"=>[
+               "Pre Bronze","Bronze","Silver","Gold"
+           ],
+           "99"=>[
+               "Pre Bronze","Bronze","Silver","Gold","Gold Star 1","Gold Star 2"
+           ]
 
-    private static $setup;
+       ],
+       "Georgia DanceSport Amateur-2019"=>[
+           "11"=>[
+               "Social",
+               "Newcomer",
+               "Bronze",
+               "Silver"
 
-    /** @var Channel */
-    private static $channel;
+           ],
+           "14"=>[
+               "Social",
+               "Newcomer",
+               "Bronze",
+               "Silver",
+               "Gold"
+           ],
+           "18"=>[
+               "Social",
+               "Newcomer",
+               "Bronze",
+               "Silver",
+               "Gold",
+               "Novice",
+               "Pre Championship",
+               "Championship"
+           ],
+
+       ],
+       "Georgia DanceSport ProAm-2019"=>[
+           "0"=>[
+               "Rising Star",
+               "Professional"
+           ],
+           "14"=>[
+               "Newcomer",
+               "Pre Bronze",
+               "Intermediate Bronze",
+               "Full Bronze",
+               "Open Bronze",
+               "Pre Silver",
+               "Intermediate Silver",
+               "Full Silver",
+               "Open Silver",
+           ],
+           "99"=>[
+               "Newcomer",
+               "Pre Bronze",
+               "Intermediate Bronze",
+               "Full Bronze",
+               "Open Bronze",
+               "Pre Silver",
+               "Intermediate Silver",
+               "Full Silver",
+               "Open Silver",
+               "Pre Gold",
+               "Intermediate Gold",
+               "Full Gold",
+               "Open Gold",
+               "Gold Star 1",
+               "Gold Star 2",
+           ]
+       ],
+   ];
+
 
     /**
      * @throws Exception
      */
     protected static function setupChannelInventory()
     {
-        self::$setup = new Kernel('dev',true);
-        self::$setup->boot();
-        self::$em = self::$setup->getContainer()->get('doctrine.orm.sales_entity_manager');
-        self::clearInventory();
-        self::$channel = self::setChannel(self::$em);
-        self::setInventory(self::$em, self::$channel);
-        self::$setup=null;
+        $kernel = new Kernel('dev',true);
+        $kernel->boot();
+        $entityManager= $kernel->getContainer()->get('doctrine.orm.sales_entity_manager');
+        self::clearInventory($entityManager);
+        $channel = self::setChannel($entityManager);
+        self::setInventory($entityManager, $channel);
     }
 
 
     /**
+     * @param EntityManagerInterface $em
      * @throws \Doctrine\DBAL\DBALException
      */
-    private static function clearInventory()
+    private static function clearInventory(EntityManagerInterface $em)
     {
-        $conn = self::$em->getConnection();
+        $conn = $em->getConnection();
         $conn->exec('SET FOREIGN_KEY_CHECKS = 0');
         $conn->exec('TRUNCATE TABLE channel');
         $conn->exec('TRUNCATE TABLE pricing');
         $conn->exec('TRUNCATE TABLE user');
         $conn->exec("TRUNCATE TABLE workarea");
+        $conn->exec("TRUNCATE TABLE tag");
+        $conn->exec('TRUNCATE TABLE form');
         $conn->exec('SET FOREIGN_KEY_CHECKS = 1');
-
     }
 
     /**
@@ -92,23 +159,24 @@ trait TraitSetup {
      * @return Channel
      * @throws Exception
      */
-    protected static function setChannel(EntityManagerInterface $em):Channel
+    protected static function setChannel(EntityManagerInterface $em) : Channel
     {
-
+        /** @var Channel $channel */
         $channel = $em->getRepository(Channel::class)->findOneBy(['name'=>self::$channel['name']]);
         if(!$channel){
             $logo = file_get_contents(__DIR__.'/../../assets/dancers-icon.png');
+            /** @var string $parameters */
             $channel = new Channel();
-            $channel->setName(self::$channelSetup['name'])
-                    ->setHeading(self::$channelSetup['heading'])
+            $channel->setName(self::$channel['name'])
+                    ->setHeading(self::$channel['heading'])
                     ->setLogo($logo)
+                    ->setParameters(self::$parameters)
                     ->setOnlineAt(new \DateTime('2019-06-01'))
                     ->setOfflineAt(new \DateTime('2019-09-20'))
                     ->setCreatedAt(new \DateTime('now'));
             $em->persist($channel);
             $em->flush();
         }
-        /** @var Channel $channel */
         return $channel;
     }
 
@@ -129,5 +197,4 @@ trait TraitSetup {
         }
         $em->flush();
     }
-
 }

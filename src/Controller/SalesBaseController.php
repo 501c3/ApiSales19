@@ -20,11 +20,14 @@ use Doctrine\ORM\EntityManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\Request;
 
 
 class SalesBaseController extends AbstractController
 {
     const AUTHORIZATION = 'Authorization';
+
+    const COMPETITION = 'competition';
 
     /** @var WorkareaRepository */
     protected $workareaRepository;
@@ -62,13 +65,15 @@ class SalesBaseController extends AbstractController
         $this->formRepository = $entityManager->getRepository(Form::class);
         $this->userRepository = $entityManager->getRepository(User::class);
         $this->JWTTokenManager = $JWTTokenManager;
+
         $this->logger = $logger;
 
     }
 
     protected function fetchChannelFromUrl(string $hostname): ?Channel
     {
-        $inDevelopment = $hostname==='localhost';
+        // TODO: Remove the localhost:8000 after complete development.
+        $inDevelopment = $hostname==='localhost'|$hostname==='localhost:8000';
         list($channelName) = $inDevelopment?['georgia-dancesport']:explode('.',$hostname);
         return $this->channelRepository->findOneBy(['name'=>$channelName]);
     }
@@ -92,5 +97,22 @@ class SalesBaseController extends AbstractController
         $user = $this->userRepository->findOneBy(['username'=>$username]);
         $workarea = $this->workareaRepository->findOneBy(['tag'=>$tag, 'user'=>$user, 'channel'=>$channel]);
         return $workarea;
+    }
+
+    /**
+     * @param Request $request
+     * @return array
+     * @throws \Doctrine\ORM\ORMException
+     * @throws \Doctrine\ORM\OptimisticLockException
+     */
+    protected function fetchAuthorizationContentWorkarea(Request $request) : array
+    {
+        $authorization = $request->headers->get('Authorization');
+        $channel = $this->fetchChannelFromUrl($request->getHttpHost());
+        /** @var array $content */
+        $pre = $request->getContent();
+        $content = is_string($pre)?json_decode($pre,true):$pre;
+        $workarea = $this->getWorkarea($authorization, self::COMPETITION, $channel);
+        return [$authorization,$content,$workarea];
     }
 }

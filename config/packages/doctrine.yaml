@@ -59,6 +59,12 @@ doctrine:
                         dir:  '%kernel.project_dir%/src/Entity/Model'
                         prefix: 'App\Entity\Model'
                         alias: Model
+#                dql:
+#                    string_functions:
+#                        JSON_EXTRACT: 'Scienta/DoctrineJsonFunctions/Query/AST/Functions/Mysql/JsonExtract'
+#                        JSON_SEARCH: 'Scienta/DoctrineJsonFunctions/Query/AST/Functions/Mysql/JsonSearch'
+# TODO: Reinstate when this feature is working. Currently using native queries based on JSON content.
+#       Queries on JSON fields appears broken
             sales:
                 connection: sales
                 mappings:

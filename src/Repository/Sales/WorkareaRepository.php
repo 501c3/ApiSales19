@@ -34,6 +34,7 @@ class WorkareaRepository extends ServiceEntityRepository
      * @return Workarea
      * @throws \Doctrine\ORM\ORMException
      * @throws \Doctrine\ORM\OptimisticLockException
+     * @throws \Exception
      */
     public function create(Tag $tag, Channel $channel, User $user)
     {

@@ -24,4 +24,9 @@ class ModelRepository extends ServiceEntityRepository
         parent::__construct($registry, Model::class);
     }
 
+    public function modelExists(string $modelName)
+    {
+        return $this->count(['name'=>$modelName])?true:false;
+    }
+
 }

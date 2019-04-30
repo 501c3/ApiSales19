@@ -30,3 +30,9 @@ services:
     security.user_password_encoder.generic:
         class: 'Symfony\Component\Security\Core\Encoder\UserPasswordEncoder'
         public: true
+
+    app.jwt_token_authenticator:
+        autowire: true
+        autoconfigure: false
+        class: App\Security\Guard\JWTTokenAuthenticator
+        parent: lexik_jwt_authentication.security.guard.jwt_token_authenticator

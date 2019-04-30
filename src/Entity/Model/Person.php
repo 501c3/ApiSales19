@@ -2,6 +2,7 @@
 
 namespace App\Entity\Model;
 
+use App\AppException;
 use Doctrine\Common\Collections\Collection;
 use /** @noinspection PhpUnusedAliasInspection */
     Doctrine\ORM\Mapping as ORM;
@@ -166,6 +167,25 @@ class Person
         return $this;
     }
 
-
-
+    /**
+     * @param $name
+     * @param $value
+     * @throws AppException
+     */
+    public function __set($name,$value)
+    {
+        switch($name){
+            case 'id':
+                $this->id=$value;
+                break;
+            case 'years':
+                $this->years=$value;
+                break;
+            case 'describe':
+                $this->describe=$value;
+                break;
+            default:
+                throw new AppException("Unable to set field '$name'' in Person object");
+        }
+    }
 }

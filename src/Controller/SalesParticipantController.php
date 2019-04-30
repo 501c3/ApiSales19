@@ -20,8 +20,6 @@ use Symfony\Component\Routing\Annotation\Route;
 class SalesParticipantController extends SalesBaseController
 {
 
-    const COMPETITION = 'competition';
-
     public function __construct(EntityManagerInterface $entityManager,
                                 JWTTokenManagerInterface $JWTTokenManager,
                                 LoggerInterface $logger)
@@ -43,9 +41,7 @@ class SalesParticipantController extends SalesBaseController
      */
     public function apiListParticipants(Request $request)
     {
-        $authorization = $request->headers->get('Authorization');
-        $channel = $this->fetchChannelFromUrl($request->getHttpHost());
-        $workarea = $this->getWorkarea($authorization,self::COMPETITION,$channel);
+        list($authorization,,$workarea) = $this->fetchAuthorizationContentWorkarea($request);
         $tag = $this->tagRepository->fetch('participant');
         $list = $this->formRepository->fetchArrayList($tag,$workarea);
         $response = $this->json($list, Response::HTTP_ACCEPTED,['Authorization'=>$authorization]);
@@ -66,17 +62,35 @@ class SalesParticipantController extends SalesBaseController
 
     public function apiPostParticipant(Request $request): JsonResponse
     {
-        $authorization = $request->headers->get('Authorization');
-        $channel = $this->fetchChannelFromUrl($request->getHttpHost());
-        /** @var array $content */
-        $content = $request->getContent();
+        list($authorization,$content,$workarea) = $this->fetchAuthorizationContentWorkarea($request);
         $tag = $this->tagRepository->fetch('participant');
-        $workarea = $this->getWorkarea($authorization, self::COMPETITION, $channel);
-        $participant = $this->formRepository->post($content,$tag,$workarea);
-        $response = $this->json(['id'=>$participant->getId(),
-            'tag'=>'participant', 'name'=>[$participant->getNote()]],
+        $form = $this->formRepository->post($content,$tag,$workarea);
+        $response = $this->json(['id'=>$form->getId(),
+            'tag'=>'participant', 'name'=>$content['name']],
             Response::HTTP_CREATED, ['Authorization'=>$authorization]);
         $response->prepare($request);
+        return $response;
+    }
+
+    /**
+     * @Route("/api/sales/participant",
+     *     name="api_sales_participant_put",
+     *     schemes={"https","http"},
+     *     methods={"PUT"},
+     *     host="localhost")
+     * @param Request $request
+     * @return JsonResponse
+     * @throws \Doctrine\ORM\ORMException
+     * @throws \Doctrine\ORM\OptimisticLockException
+     */
+    public function apiPutParticipant(Request $request) : JsonResponse
+    {
+        list($authorization,$content) = $this->fetchAuthorizationContentWorkarea($request);
+        $tag = $this->tagRepository->fetch('participant');
+        $form = $this->formRepository->put($content,$tag);
+        $response = $this->json([
+                'id'=>$form->getId(),'tag'=>'participant','name'=>$content['name'],'message'=>'Updated'],
+            Response::HTTP_CREATED, ['Authorization'=>$authorization]);
         return $response;
     }
 
@@ -94,17 +108,12 @@ class SalesParticipantController extends SalesBaseController
      */
     public function apiGetParticipant(Request $request, int $id): JsonResponse
     {
-        $authorization = $request->headers->get('Authorization');
-        $channel = $this->fetchChannelFromUrl($request->getHttpHost());
-        /** @var array $content */
-        $workarea = $this->getWorkarea($authorization, self::COMPETITION, $channel);
+        list($authorization,,)=$this->fetchAuthorizationContentWorkarea($request);
         /** @var Form $form */
-        $info = $this->formRepository->fetchInfo($id,$workarea);
+        $info = $this->formRepository->fetchInfo($id);
         $header = ['Authorization'=>$authorization];
         return $info?
             $this->json($info,Response::HTTP_ACCEPTED,$header):
-            $this->json(['message'=>"information was not found for id=$id"],Response::HTTP_NOT_FOUND, $header);
+            $this->json(['message'=>"No participant exists with id:$id"],Response::HTTP_NOT_FOUND, $header);
     }
-
-
 }

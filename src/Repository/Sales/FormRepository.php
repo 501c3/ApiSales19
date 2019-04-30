@@ -36,7 +36,6 @@ class FormRepository extends ServiceEntityRepository
   public function post(array $content, Tag $tag, Workarea $workarea) : Form
   {
       $note = $this->note($content,$tag);
-
       $form = new Form();
       $form->setContent($content)
           ->setWorkarea($workarea)
@@ -44,6 +43,25 @@ class FormRepository extends ServiceEntityRepository
           ->setNote($note)
           ->setUpdatedAt(new \DateTime('now'));
       $this->_em->persist($form);
+      $this->_em->flush();
+      return $form;
+  }
+
+    /**
+     * @param array $content
+     * @param Tag $tag
+     * @return Form
+     * @throws \Doctrine\ORM\ORMException
+     * @throws \Doctrine\ORM\OptimisticLockException
+     */
+  public function put(array $content, Tag $tag): Form
+  {
+      /** @var Form $form */
+      $form = $this->find($content['id']);
+      unset($content['id']);
+      unset($content['tag']);
+      $form->setContent($content)
+            ->setNote($this->note($content, $tag));
       $this->_em->flush();
       return $form;
   }
@@ -65,19 +83,31 @@ class FormRepository extends ServiceEntityRepository
       $list = [];
       foreach($formList as $form) {
           $content = $form->getContent();
-          $list[]=['id'=>$form->getId(),
-                   'name'=> ['first'=>$content['name']['first'], 'last'=>$content['name']['last']],
-                   'tag'=>$tag->getName()];
+          $tagName = $tag->getName();
+          $function= 'get'.ucfirst($tagName);
+          $element = $this->$function($form->getId(), $content, $tagName);
+          $list[]=$element;
       }
       return $list;
   }
 
-  public function fetchInfo(int $id, Workarea $workarea)
+  protected function getParticipant($id,$content,$tagName)
   {
-      $form = $this->findOneBy(['id'=>$id, 'workarea'=>$workarea]);
+      return ['id'=>$id,
+              'name'=> ['first'=>$content['name']['first'], 'last'=>$content['name']['last']],
+              'tag'=>$tagName];
+  }
+
+
+
+  public function fetchInfo(int $id)
+  {
+      /** @var Form $form */
+      $form = $this->find(['id'=>$id]);
       if($form) {
           $content = $form->getContent();
           $content['id']=$form->getId();
+          $content['tag']=$form->getTag()->getName();
           return $content;
       } else {
           return null;

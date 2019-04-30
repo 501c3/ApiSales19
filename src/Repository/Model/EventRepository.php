@@ -8,40 +8,117 @@
 
 namespace App\Repository\Model;
 
-use App\Entity\Model\Team;
+use App\Entity\Model\Model;
+use App\Entity\Model\TeamClass;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Persistence\ManagerRegistry;
 use App\Entity\Model\Event;
-use Doctrine\ORM\QueryBuilder;
+use Doctrine\ORM\Query\ResultSetMappingBuilder;
+
 
 class EventRepository extends ServiceEntityRepository
 {
+    const AMERICAN = 'American',
+          INTERNATIONAL = 'International',
+          SMOOTH = 'Smooth',
+          RHYTHM = 'Rhythm',
+          STANDARD= 'Standard',
+          LATIN='Latin',
+          FUN_EVENTS='Fun Events';
+
+    const
+        SQL =<<< 'EOD'
+# noinspection SqlNoDataSourceInspection
+SELECT  e.id as e_id, 
+        e.`describe` as e_describe,
+        m.id as m_id, 
+        m.name as m_name 
+FROM model.`event` e
+INNER JOIN model.model m ON e.model_id=m.id
+INNER JOIN model.event_has_team_class ec ON e.id=ec.event_id
+INNER JOIN model.team_class c ON ec.team_class_id=c.id
+WHERE c.id = ?
+AND m.id = ?
+AND e.`describe`->>"$.style" = ?
+AND e.`describe`->>"$.dances" LIKE ?
+EOD;
+
+    const
+        FIELD_CLASS_ID=1,
+        FIELD_MODEL_ID=2,
+        FIELD_STYLE=3,
+        FIELD_SUBSTYLE=4;
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Event::class);
     }
 
-    private function queryBuilder()
+
+    private function likeSubstyle(...$substyles)
     {
-        $qb=$this->createQueryBuilder('event');
-        $qb->select('model','event','teamClass')
-            ->innerJoin('team.teamClass','teamClass')
-            ->innerJoin('event.model','model');
+        switch(count($substyles)){
+            case 1:
+                return '{"'.$substyles[0].'": %}';
+            case 2:
+                return '{"'.$substyles[0].'": % , "'.$substyles[1].'": %}';
+        }
     }
 
 
-    public function getEvents(Team $team,array $models,array $styles) {
-        $class = $team->getTeamClass();
-        /** @var QueryBuilder $qb */
-        $qb = $this->queryBuilder();
-        $qb->where('model IN [:models]')
-            ->andWhere('teamClass=:class')
-            ->andWhere("JSON_EXTRACT(event.`describe`,'$.style') IN (:styles)");
-        $query = $qb->getQuery();
-        $query->setParameters([':models'=>$models,':class'=>$class,':styles'=>$styles]);
-
+    public function fetch(TeamClass $class, Model $model, string $genre)
+    {
+        $rsm = new ResultSetMappingBuilder($this->_em);
+        $eventClass = Event::class;
+        $rsm->addRootEntityFromClassMetadata(Event::class,'e');
+        $rsm->addFieldResult('e','e_id','id');
+        $rsm->addFieldResult('e','e_describe','describe');
+        $rsm->addJoinedEntityResult(Model::class , 'm', 'e', 'model');
+        $rsm->addFieldResult('m', 'm_id', 'id');
+        $rsm->addFieldResult('m', 'm_name', 'name');
+        $ss = $this->genreToStyle($genre);
+        $likeSubstyle = count($ss['substyle'])>1?
+            $this->likeSubstyle($ss['substyle'][0],$ss['substyle'][1]):
+            $this->likeSubstyle($ss['substyle'][0]);
+        $query = $this->_em->createNativeQuery(self::SQL,$rsm);
+        $query->setParameters([
+           self::FIELD_CLASS_ID=>$class->getId(),
+           self::FIELD_MODEL_ID=>$model->getId(),
+           self::FIELD_STYLE=>$ss['style'],
+           self::FIELD_SUBSTYLE=>$likeSubstyle
+        ]);
+        $result = $query->getResult();
+        return $result;
     }
+
+    private function genreToStyle(string $genre)
+    {
+        switch($genre){
+            case self::AMERICAN:
+                return ['style'=>$genre,
+                        'substyle'=>[self::RHYTHM,self::SMOOTH]];
+            case self::INTERNATIONAL:
+                return ['style'=>$genre,
+                        'substyle'=>[self::LATIN,self::STANDARD]];
+            case self::SMOOTH:
+                return ['style'=>self::AMERICAN,
+                        'substyle'=>[self::SMOOTH]];
+            case self::RHYTHM:
+                return ['style'=>self::AMERICAN,
+                        'substyle'=>[self::RHYTHM]];
+            case self::STANDARD:
+                return ['style'=>self::INTERNATIONAL,
+                        'substyle'=>[self::STANDARD]];
+            case self::LATIN:
+                return ['style'=>self::INTERNATIONAL,
+                        'substyle'=>[self::LATIN]];
+            case self::FUN_EVENTS:
+                return ['style'=>$genre,
+                        'substyle'=>[self::RHYTHM,self::SMOOTH]];
+        }
+    }
+
 
     function fetchQuickSearch()
     {
@@ -50,7 +127,8 @@ class EventRepository extends ServiceEntityRepository
         /** @var Event $result */
         foreach($results as $result) {
             $describe=$result->getDescribe();
-            $status = $describe['status'];
+            // TODO: eliminate following line
+            //$status = $describe['status'];
             $proficiency = $describe['proficiency'];
             $age = $describe['age'];
             $style = $describe['style'];

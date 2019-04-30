@@ -8,6 +8,7 @@
         "ext-json": "^1.6",
         "friends-of-behat/symfony-extension": "^2.0",
         "lexik/jwt-authentication-bundle": "^2.6",
+        "scienta/doctrine-json-functions": "^4.0",
         "sensio/framework-extra-bundle": "^5.2",
         "symfony/console": "4.2.*",
         "symfony/dotenv": "4.2.*",
@@ -15,6 +16,7 @@
         "symfony/flex": "^1.1",
         "symfony/framework-bundle": "4.2.*",
         "symfony/orm-pack": "^1.0",
+        "symfony/proxy-manager-bridge": "4.2.*",
         "symfony/security": "4.2.*",
         "symfony/security-bundle": "4.2.*",
         "symfony/yaml": "4.2.*"

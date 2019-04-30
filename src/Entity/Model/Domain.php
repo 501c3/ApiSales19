@@ -56,7 +56,7 @@ class Domain
     }
 
     /**
-     * @param string|null $name
+     * @param string $name
      * @return Domain
      */
     public function setName(?string $name): Domain

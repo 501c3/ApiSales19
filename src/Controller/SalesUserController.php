@@ -27,42 +27,21 @@ class SalesUserController extends SalesBaseController
 
     /** @var int */
     private $pin;
+    /**
+     * @var UserPasswordEncoderInterface
+     */
+    private $userPasswordEncoder;
 
     public function __construct(
         EntityManagerInterface $entityManager,
         JWTTokenManagerInterface $tokenManager,
+        UserPasswordEncoderInterface $userPasswordEncoder,
         LoggerInterface $logger)
     {
         parent::__construct($entityManager, $tokenManager, $logger);
+        $this->userPasswordEncoder = $userPasswordEncoder;
     }
 
-    /**
-     * @Route("/api/sales/continue",
-     *         name="api_sales_login_request",
-     *         methods={"POST"},
-     *         host="localhost")
-     * @Security("is_granted('IS_AUTHENTICATED_ANONYMOUSLY')")
-     * @param Request $request
-     * @return JsonResponse
-     */
-
-    public function apiContinue(Request $request) : JsonResponse
-    {
-        $content = json_decode($request->getContent(),true);
-        $email = $content['email'];
-        $user = $this->userRepository->loadUserByUsername($email);
-        if(!$user) {
-            return $this->json(
-                ['message'=>'User not found.  Did you enter the correct email?',
-                 'route'=>'/api/sales/contact'],
-                Response::HTTP_NOT_FOUND);
-        }
-        $token = $this->JWTTokenManager->create($user);
-        return $this->json(
-            ['message'=>'Found your registration.  Check email for pin to access your registration.'],
-            Response::HTTP_CONTINUE,
-            ['Authorization'=>'Bearer '.$token]);
-    }
 
 
     /**
@@ -77,17 +56,25 @@ class SalesUserController extends SalesBaseController
     public function apiLogin(Request $request)
     {
 
-        $content=$request->getContent();
+        $pre=$request->getContent();
+        $content = is_string($pre)?json_decode($pre,true):$pre;
         /** @var User $user */
         $user=$this->userRepository->loadUserByUsername($content['username']);
         if(!$user) {
-            return $this->json(['message'=>'Bad username.',
+            return $this->json(['message'=>'Bad username or pin',
                                 'route'=>'/api/sales/login'],Response::HTTP_UNAUTHORIZED);
         }
-        $user->eraseCredentials();
+
+        if (! $this->userPasswordEncoder->isPasswordValid($user,$content['password'])){
+            return $this->json(['message'=>'Bad username or pin.',
+                                'route'=>'/api/sales/login'], Response::HTTP_UNAUTHORIZED);
+        }
         $this->entityManager->flush();
         $token=$this->JWTTokenManager->create($user);
-        return $this->json(['token'=>$token, 'id'=>$user->getId()],
+        list($last,$first) = explode(',',$user->getName());
+        $user->eraseCredentials();
+        $this->entityManager->flush();
+        return $this->json(['id'=>$user->getId(), 'name'=>"$first $last"],
             Response::HTTP_OK,['Authorization'=>'Bearer '.$token]);
     }
 
@@ -96,24 +83,71 @@ class SalesUserController extends SalesBaseController
 
     /**
      * @Route("/api/sales/contact",
-     *        name="api_sales_contact_secure",
+     *        name="api_sales_contact",
      *        schemes={"https","http"},
-     *        methods={"PUT"},
+     *        methods={"POST"},
      *        host="localhost")
+     * @Security("is_granted('IS_AUTHENTICATED_ANONYMOUSLY')")
+     * @param Request $request
+     * @return JsonResponse
+     * @throws \Exception
+     */
+    public function apiContact(Request $request): JsonResponse
+    {
+        /** @var JsonResponse $response */
+        $pre = $request->getContent();
+        $content = is_string($pre)?json_decode($pre,true):$pre;
+        /** @var User $user */
+        $user=$this->userRepository->findOneBy(['username'=>$content['email']]);
+        if(!$user) {
+            $response = $this->json([
+                'message'=>$user->getUsername().' was not found in system.  Have you registered?',
+                'route'=>'/api/sales/register'
+            ],Response::HTTP_NOT_FOUND);
+            return $response;
+        }
+        // TODO: replace this pin by random number.
+        // $pin = rand(1234,9876);
+        $pin = 1234;
+        $encryption = $this->userPasswordEncoder->encodePassword($user,$pin);
+        $user->setPassword($encryption)
+            ->setUpdatedAt(new \DateTime('now'));
+        $this->entityManager->flush();
+        // TODO: Add mailer service to send pin
+        // TODO: Add text service to send pin
+        $response = $this->json([
+            'message'=>'A pin has been emailed to '.$user->getUsername(),
+            'route'=>'/api/sales/login'
+            ],Response::HTTP_OK);
+        return $response;
+    }
+
+    /**
+     * @Route("/api/sales/user",
+     *          name="api_sales_user",
+     *          schemes={"https","http"},
+     *          methods={"PUT"},
+     *          host="localhost"),
      * @Security("is_granted('IS_AUTHENTICATED_FULLY')")
      * @param Request $request
      * @return JsonResponse
+     * @throws AppException
      * @throws \Doctrine\ORM\ORMException
      * @throws \Doctrine\ORM\OptimisticLockException
      */
-    public function update(Request $request): JsonResponse
+    public function apiUser(Request $request)
     {
-        /** @var JsonResponse $response */
-        $content = json_decode($request->getContent(),true);
-        $this->userRepository->put($content);
-        $response = $this->json(['message'=>'User information updated.'],Response::HTTP_OK);
-        $response->prepare($request);
-        return $response;
+       $pre = $request->getContent();
+       $content = is_string($pre)?json_decode($pre,true):$pre;
+       /** @var User $user */
+       $user = $this->userRepository->put($content);
+       $token=$this->JWTTokenManager->create($user);
+       $headers = ['Authorization'=> 'Bearer '.$token];
+       $response = $this->json([
+           'id'=>$user->getId(),
+           'message'=>'Contact information updated',
+           'route'=>'/api/sales/contact'],Response::HTTP_ACCEPTED,$headers);
+       return $response;
     }
 
     /**
@@ -132,7 +166,8 @@ class SalesUserController extends SalesBaseController
     public function apiRegister(Request $request, UserPasswordEncoderInterface $encoder): JsonResponse
     {
         /** @var array $content */
-        $content = $request->getContent();
+        $pre = $request->getContent();
+        $content=is_string($pre)?json_decode($pre,true):$pre;
         /** @var Channel $channel */
         $channel = $this->channelRepository->findOneBy(['name'=>'georgia-dancesport']);
         try{
