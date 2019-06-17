@@ -25,34 +25,68 @@ class PricingRepository extends ServiceEntityRepository
         parent::__construct($registry, Pricing::class);
     }
 
-    /**
-     * @param Channel $channel
-     */
-    public function clearPricing(Channel $channel)
+//    /**
+//     * @param Channel $channel
+//     */
+//    public function clearPricing(Channel $channel)
+//    {
+//        $qb=$this->createQueryBuilder('pricing');
+//        $qb->delete('App\\Entity\\Sales\\Pricing','p')
+//            ->where('p.channel=:channel');
+//        $query = $qb->getQuery();
+//        $query->setParameter(':channel',$channel);
+//        $query->execute();
+//    }
+//
+//    /**
+//     * @param Channel $channel
+//     * @param string $date
+//     * @param array $inventoryPricing
+//     * @throws \Doctrine\ORM\ORMException
+//     * @throws \Doctrine\ORM\OptimisticLockException
+//     */
+//    public function addPricing(Channel $channel,string $date, array $inventoryPricing)
+//    {
+//        $em = $this->getEntityManager();
+//        $pricing = new Pricing();
+//        $pricing->setChannel($channel)
+//            ->setStartAt(new \DateTime($date))
+//            ->setInventory($inventoryPricing);
+//        $em->persist($pricing);
+//        $em->flush();
+//    }
+
+
+    private function getPricing(\DateTime $currentDate, Channel $channel)
     {
-        $qb=$this->createQueryBuilder('pricing');
-        $qb->delete('App\\Entity\\Sales\\Pricing','p')
-            ->where('p.channel=:channel');
-        $query = $qb->getQuery();
-        $query->setParameter(':channel',$channel);
-        $query->execute();
+        $inventoryByDate=$this->findBy(['channel'=>$channel],['startAt'=>'ASC']);
+        /** @var Pricing $record */
+        foreach($inventoryByDate as $record){
+            {
+                $startAt = $record->getStartAt();
+                $inventory = $record->getInventory();
+                if($currentDate<$startAt) {
+                    return $inventory;
+                }
+            }
+        }
     }
 
-    /**
-     * @param Channel $channel
-     * @param string $date
-     * @param array $inventoryPricing
-     * @throws \Doctrine\ORM\ORMException
-     * @throws \Doctrine\ORM\OptimisticLockException
-     */
-    public function addPricing(Channel $channel,string $date, array $inventoryPricing)
+    public function getXtraPricing(\DateTime $currentDate, Channel $channel)
     {
-        $em = $this->getEntityManager();
-        $pricing = new Pricing();
-        $pricing->setChannel($channel)
-            ->setStartAt(new \DateTime($date))
-            ->setInventory($inventoryPricing);
-        $em->persist($pricing);
-        $em->flush();
+
+        $inventory = $this->getPricing($currentDate,$channel);
+        return $inventory['extra'];
+    }
+
+    public function getParticipantPricing(\DateTime $currentDate, Channel $channel)
+    {
+        $inventory = $this->getPricing($currentDate,$channel);
+        return $inventory['participant'];
+    }
+
+    public function calculateCosts()
+    {
+
     }
 }

@@ -36,3 +36,7 @@ services:
         autoconfigure: false
         class: App\Security\Guard\JWTTokenAuthenticator
         parent: lexik_jwt_authentication.security.guard.jwt_token_authenticator
+
+    app.utils_operation:
+        class: App\Utils\Operation
+        public: true

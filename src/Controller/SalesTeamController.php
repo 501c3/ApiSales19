@@ -9,11 +9,14 @@
 namespace App\Controller;
 
 
+use App\AppException;
+use App\Entity\Sales\Workarea;
 use App\Utils\Operation;
 use Doctrine\ORM\EntityManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Psr\Log\LoggerInterface;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Security;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
@@ -38,11 +41,11 @@ class SalesTeamController extends SalesBaseController
                                 EntityManagerInterface $entityManager,
                                 JWTTokenManagerInterface $JWTTokenManager,
                                 LoggerInterface $logger)
-  {
+   {
 
       parent::__construct($entityManager,$JWTTokenManager,$logger);
       $this->operation = $operation;
-  }
+   }
 
 
     /**
@@ -53,42 +56,94 @@ class SalesTeamController extends SalesBaseController
      *     host="localhost")
      * @param Request $request
      * @return \Symfony\Component\HttpFoundation\JsonResponse
+     * @throws \App\AppException
+     * @throws \Doctrine\ORM\NonUniqueResultException
      * @throws \Doctrine\ORM\ORMException
      * @throws \Doctrine\ORM\OptimisticLockException
      */
-  public function apiPostTeam(Request $request)
+  public function apiPostTeam(Request $request) : JsonResponse
   {
       list($authorization,$content,$workarea) = $this->fetchAuthorizationContentWorkarea($request);
-      $teamEvents = $this->teamEvents($content['team-request']);
+      $teamEvents = $this->teamEvents($content['team-request'],$workarea);
       $tag = $this->tagRepository->fetch('team');
-      $form = $this->formRepository->post($teamEvents->toArray(),$tag,$workarea);
-      $response = $this->json(['id'=>$form->getId(),
-          'tag'=>'team', 'name'=>$teamEvents->toArray()],
+      try{
+        $form = $this->formRepository->post($teamEvents->toArray(),$tag,$workarea);
+      } catch (AppException $e) {
+          $_content = ['id'=>$e->priorId, 'status'=>'fail', 'tag'=>'team', 'message'=>'This team was previously defined.'];
+          $response = $this->json($_content,
+              Response::HTTP_FORBIDDEN, ['Authorization'=>$authorization]);
+          $response->prepare($request);
+          return $response;
+      }
+      $content = $form->getContent();
+      $content['id']=$form->getId();
+      $response = $this->json($content,
           Response::HTTP_CREATED, ['Authorization'=>$authorization]);
       $response->prepare($request);
       return $response;
   }
 
-  private function teamEvents(array $ids)
+    /**
+     * @param array $ids
+     * @param Workarea $workarea
+     * @return \App\Entity\TeamEvents|void
+     * @throws \App\AppException
+     * @throws \Doctrine\ORM\NonUniqueResultException
+     */
+    private function teamEvents(array $ids, Workarea $workarea)
   {
       $infoList = [];
       foreach($ids as $id) {
-          $info = $this->formRepository->fetchInfo($id);
+          $info = $this->formRepository->fetchInfo($id, $workarea);
           $infoList[]=$info;
       }
       return $this->operation->teamEvents($infoList);
   }
 
 
+    /**
+     * @Route("/api/sales/team",
+     *     name="api_sales_team_delete",
+     *     schemes={"https","http"},
+     *     methods={"DELETE"},
+     *     host="localhost")
+     * @param Request $request
+     * @return \Symfony\Component\HttpFoundation\JsonResponse
+     * @throws \App\AppException
+     * @throws \Doctrine\ORM\ORMException
+     * @throws \Doctrine\ORM\OptimisticLockException
+     */
 
-  public function apiDeleteTeam(Request $request)
+  public function apiDeleteTeam(Request $request): JsonResponse
   {
-
+      list($authorization,$content,$workarea) = $this->fetchAuthorizationContentWorkarea($request);
+      $status = $this->formRepository->delete($content['team-delete'],$workarea);
+      $response = $this->json($status,
+          Response::HTTP_OK, ['Authorization'=>$authorization]);
+      $response->prepare($request);
+      return $response;
   }
 
-  public function apiListTeam(Request $request)
+    /**
+     * @Route("/api/sales/team",
+     *     name="api_sales_team_list",
+     *     schemes={"https","http"},
+     *     methods={"GET"},
+     *     host="localhost")*
+     * @param Request $request
+     * @return JsonResponse
+     * @throws \Doctrine\ORM\ORMException
+     * @throws \Doctrine\ORM\OptimisticLockException
+     */
+  public function apiListTeam(Request $request): JsonResponse
   {
-
+      list($authorization,,$workarea) = $this->fetchAuthorizationContentWorkarea($request);
+      $tag = $this->tagRepository->fetch('team');
+      $infoList=$this->formRepository->fetchArrayList($tag,$workarea);
+      $response = $this->json($infoList,
+          Response::HTTP_ACCEPTED,['Authorization'=>$authorization]);
+      $response->prepare($request);
+      return $response;
   }
 
 }

@@ -58,7 +58,6 @@ class Operation {
      * @param array $infoList
      * @return TeamEvents|void
      * @throws AppException
-     * @throws \Doctrine\ORM\NoResultException
      * @throws \Doctrine\ORM\NonUniqueResultException
      */
     public function teamEvents(array $infoList) : TeamEvents
@@ -66,16 +65,22 @@ class Operation {
         switch(count($infoList))
         {
             case 1:
-                $teamEvents = $this->soloTeamEvents($infoList[0]);
-                return $teamEvents;
+                /** @noinspection PhpInconsistentReturnPointsInspection */
+                return $this->soloTeamEvents($infoList[0]);
             case 2:
-                $teamEvents = $this->coupleTeamEvents($infoList[0],$infoList[1]);
-                return $teamEvents;
+                /** @noinspection PhpInconsistentReturnPointsInspection */
+                return $this->coupleTeamEvents($infoList[0],$infoList[1]);
             default:
-                throw new AppException("Invalid parameter passed to $infoList");
+                throw new AppException("Only 1 or 2 competitors per team can be handled.");
         }
     }
 
+    /**
+     * @param $personInfo
+     * @return TeamEvents
+     * @throws AppException
+     * @throws \Doctrine\ORM\NonUniqueResultException
+     */
     private function soloTeamEvents($personInfo): TeamEvents
     {
         $teamEvents = new TeamEvents();
@@ -104,20 +109,38 @@ class Operation {
         return $teamEvents;
     }
 
+
+    public function getEvents(array $ids)
+    {
+        $collection = [];
+        foreach($ids as $id) {
+            /** @var Event $event */
+            $event=$this->eventRepository->find($id);
+            $describe = $event->getDescribe();
+            $describe['event_id']=$event->getId();
+            $describe['model_id']=$event->getModel()->getId();
+            $describe['selected']=false;
+            $collection[]=$describe;
+        }
+        return $collection;
+    }
+
     /**
-     * @param $personInfoLeft
-     * @param $personInfoRight
+     * @param array $personInfoOne
+     * @param array $personInfoTwo
      * @return TeamEvents
      * @throws AppException
      * @throws \Doctrine\ORM\NonUniqueResultException
      */
-    private function coupleTeamEvents($personInfoLeft, $personInfoRight): TeamEvents
+    private function coupleTeamEvents(array $personInfoOne, array $personInfoTwo): TeamEvents
     {
-
+        list($personInfoLeft,$personInfoRight) = $this->setMaleFirst($personInfoOne,$personInfoTwo);
         $teamEvents = new TeamEvents();
         $teamEvents->addPerson($personInfoLeft)
                     ->addPerson($personInfoRight);
+        /** @var Person $stylePersonA */
         $stylePersonA = $this->mapStyleMetaPerson($personInfoLeft, 'A');
+        /** @var Person $stylePersonB */
         $stylePersonB = $this->mapStyleMetaPerson($personInfoRight, 'B');
         $modelsLeft  = $personInfoLeft['model'];
         $this->checkModels($modelsLeft);
@@ -129,8 +152,9 @@ class Operation {
             $model = $this->modelRepository->findOneBy(['name'=>$modelName]);
             $teamEvents->addModel($model);
         }
-
-        $commonStyles = array_intersect(array_keys($stylePersonA), array_keys($stylePersonB));
+        $stylesA = array_keys($personInfoLeft['proficiency']);
+        $stylesB = array_keys($personInfoRight['proficiency']);
+        $commonStyles = array_intersect($stylesA,$stylesB);
         foreach($commonStyles as $styleName) {
             $metaPersonA = $stylePersonA[$styleName];
             $metaPersonB = $stylePersonB[$styleName];
@@ -145,9 +169,18 @@ class Operation {
                     $teamEvents->setModelStyleEvents($model, $styleName, $events);
                 }
             }
+
         }
         return $teamEvents;
     }
+
+    private function setMaleFirst($personInfoLeft,$personInfoRight)
+    {
+        $personA=$personInfoLeft['sex']=='M'?$personInfoLeft:$personInfoRight['sex']=='M'?$personInfoRight:$personInfoLeft;
+        $personB=$personInfoRight['sex']=='F'?$personInfoRight:$personInfoLeft['sex']=='F'?$personInfoLeft:$personInfoRight;
+        return [$personA,$personB];
+    }
+
 
     /**
      * @param $personInfo
@@ -158,7 +191,7 @@ class Operation {
     private function mapStyleMetaPerson($personInfo, string $designate): array
     {
         $metaStylePerson = [];
-        $sex = $personInfo['sex']='M'?'Male':'Female';
+        $sex = $personInfo['sex']=='M'?'Male':'Female';
         foreach($personInfo['proficiency'] as $style=>$proficiency) {
            if(!isset($metaStylePerson[$style])) {
                $metaStylePerson[$style]

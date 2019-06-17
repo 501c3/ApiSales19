@@ -9,6 +9,7 @@
 namespace App\Entity;
 
 
+use App\Entity\Model\Event;
 use App\Entity\Model\Model;
 use App\Entity\Model\Team;
 
@@ -72,6 +73,7 @@ class TeamEvents
      */
     public function setStyleTeam(string $Style, Team $team): TeamEvents
     {
+
         $this->styleTeam[$Style]=$team;
         return $this;
     }
@@ -107,9 +109,49 @@ class TeamEvents
         return $this;
     }
 
+    private function personsToArray()
+    {
+        $data=[];
+        foreach($this->persons as $person) {
+            $data[]=[
+                'name'=>$person['name'],
+                'sex'=>$person['sex'],
+                'years'=>$person['years'],
+                'form_id'=>$person['id']];
+        }
+        return $data;
+    }
+
+    private function selectionsToArray()
+    {
+        $arr = [];
+        foreach($this->modelStyleEvents as $model=>$styleEvents) {
+            /**
+             * @var string $style
+             * @var array $events
+             */
+            $arr[$model]=[];
+            foreach($styleEvents as $style=>$events) {
+                /** @var Event $event */
+                $arr[$model][$style]=[];
+                foreach($events as $event) {
+                    $describe = $event->getDescribe();
+                    $describe['event_id']=$event->getId();
+                    $describe['model_id']=$event->getModel()->getId();
+                    $describe['selected']=false;
+                    $arr[$model][$style][]=$describe;
+                }
+            }
+        }
+        return $arr;
+    }
+
+
     public function toArray()
     {
-
+       $data = ['team'=>$this->personsToArray(),
+                'selections'=> $this->selectionsToArray()];
+      return $data;
     }
 
     /**
@@ -118,7 +160,7 @@ class TeamEvents
      */
     public function addModel(Model $model)
     {
-        $this->models[]=$model;
+        $this->models[$model->getName()]=$model;
         return $this;
     }
 

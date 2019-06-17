@@ -20,7 +20,7 @@ security:
             anonymous: true
 
         api:
-            pattern:   ^/api/sales/(user|participant|team)
+            pattern:   ^/api/sales/(user|participant|team|entries|inventory|xtras|summary)
             stateless: true
             guard:
                 authenticators:

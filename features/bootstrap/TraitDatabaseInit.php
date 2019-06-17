@@ -30,17 +30,19 @@ trait TraitDatabaseInit {
             'participant'=>[
                 'comp-dance-adult'=>18,
                 'comp-dance-child'=>12,
-                'exam-dance'=>30],
+                'exam-dance'=>30,
+                'solo-dance-child'=>10],
             'extra'=>[
                 'spectator-adult'=> 10,
                 'spectator-child'=> 7,
                 'program'=> 7]
             ],
-       '2019-06-01'=>[
+       '2019-08-01'=>[
             'participant'=>[
                 'comp-dance-adult'=>12,
                 'comp-dance-child'=>7,
-                'exam-dance'=>21],
+                'exam-dance'=>21,
+                'solo-dance-child'=>5],
             'extra'=>[
                 'spectator-adult'=> 10,
                 'spectator-child'=> 7,
@@ -161,8 +163,9 @@ trait TraitDatabaseInit {
      */
     protected static function setChannel(EntityManagerInterface $em) : Channel
     {
+        $channelName = self::$channel['name'];
         /** @var Channel $channel */
-        $channel = $em->getRepository(Channel::class)->findOneBy(['name'=>self::$channel['name']]);
+        $channel = $em->getRepository(Channel::class)->findOneBy(['name'=>$channelName]);
         if(!$channel){
             $logo = file_get_contents(__DIR__.'/../../assets/dancers-icon.png');
             /** @var string $parameters */

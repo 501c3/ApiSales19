@@ -92,19 +92,19 @@ Feature:
 
   Scenario: I request list of participants
     Given I have entered multiple participants:
-    |first      |last       |sex|status |type   |years|latin                   |standard              |rhythm              |smooth             |models|
-    |PreBronze-F|Baby-5     |F  |Student|Amateur|5    |Pre Bronze              |Pre Bronze            |Pre Bronze          |Pre Bronze         |ISTD Medal Exams-2019,Georgia DanceSport Amateur-2019|
-    |PreBronze-M|Baby-5     |M  |Student|Amateur|5    |Pre Bronze              |Pre Bronze            |Pre Bronze          |Pre Bronze         |ISTD Medal Exams-2019,Georgia DanceSport Amateur-2019|
-    |Silver-F   |Junior1-13 |F  |Student|Amateur|13   |Intermediate Silver     |Intermediate Silver   |Intermediate Silver |Intermediate Silver|ISTD Medal Exams-2019,Georgia DanceSport Amateur-2019,Georgia DanceSport ProAm-2019|
-    |Silver-M   |Junior1-13 |M  |Student|Amateur|13   |Intermediate Silver     |Intermediate Silver   |Intermediate Silver |Intermediate Silver|ISTD Medal Exams-2019,Georgia DanceSport Amateur-2019,Georgia DanceSport ProAm-2019|
-    |Gold-F     |Youth-16   |F  |Student|Amateur|16   |Full Gold               |Full Gold             |Full Gold           |Full Gold          |ISTD Medal Exams-2019,Georgia DanceSport Amateur-2019,Georgia DanceSport ProAm-2019|
-    |Gold-M     |Youth-16   |M  |Student|Amateur|16   |Full Gold               |Full Gold             |Full Gold           |Full Gold          |ISTD Medal Exams-2019,Georgia DanceSport Amateur-2019,Georgia DanceSport ProAm-2019|
-    |Novice-F   |Adult-30   |F  |Student|Amateur|30   |Novice                  |Novice                |Novice              |Novice             |Georgia DanceSport Amateur-2019|
-    |Novice-M   |Adult-30   |M  |Student|Amateur|30   |Novice                  |Novice                |Novice              |Novice             |Georgia DanceSport Amateur-2019|
-    |Prechamp-F |Senior1-35 |F  |Student|Amateur|35   |Pre Championship        |Pre Championship      |Pre Championship    |Pre Championship   |Georgia DanceSport Amateur-2019|
-    |Prechamp-M |Senior1-35 |M  |Student|Amateur|35   |Pre Championship        |Pre Championship      |Pre Championship    |Pre Championship   |Georgia DanceSport Amateur-2019|
-    |Pro-F      |Adult-0    |F  |Teacher|Professional|0|Professional           |Professional          |Professional        |Professional       |Georgia DanceSport ProAm-2019|
-    |Pro-M      |Adult-0    |M  |Teacher|Professional|0|Professional           |Professional          |Professional        |Professional       |Georgia DanceSport ProAm-2019|
+    |first      |last       |sex|status |type   |years|latin              |standard           |rhythm             |smooth             |models|
+    |PreBronze-F|Baby-5     |F  |Student|Amateur|5    |Pre Bronze         |Pre Bronze         |Pre Bronze         |Pre Bronze         |ISTD Medal Exams-2019,Georgia DanceSport Amateur-2019|
+    |PreBronze-M|Baby-5     |M  |Student|Amateur|5    |Pre Bronze         |Pre Bronze         |Pre Bronze         |Pre Bronze         |ISTD Medal Exams-2019,Georgia DanceSport Amateur-2019|
+    |Silver-F   |Junior1-13 |F  |Student|Amateur|13   |Intermediate Silver|Intermediate Silver|Intermediate Silver|Intermediate Silver|ISTD Medal Exams-2019,Georgia DanceSport Amateur-2019,Georgia DanceSport ProAm-2019|
+    |Silver-M   |Junior1-13 |M  |Student|Amateur|13   |Intermediate Silver|Intermediate Silver|Intermediate Silver|Intermediate Silver|ISTD Medal Exams-2019,Georgia DanceSport Amateur-2019,Georgia DanceSport ProAm-2019|
+    |Gold-F     |Youth-16   |F  |Student|Amateur|16   |Full Gold          |Full Gold          |Full Gold          |Full Gold          |ISTD Medal Exams-2019,Georgia DanceSport Amateur-2019,Georgia DanceSport ProAm-2019|
+    |Gold-M     |Youth-16   |M  |Student|Amateur|16   |Full Gold          |Full Gold          |Full Gold          |Full Gold          |ISTD Medal Exams-2019,Georgia DanceSport Amateur-2019,Georgia DanceSport ProAm-2019|
+    |Novice-F   |Adult-30   |F  |Student|Amateur|30   |Novice             |Novice             |Novice             |Novice             |Georgia DanceSport Amateur-2019|
+    |Novice-M   |Adult-30   |M  |Student|Amateur|30   |Novice             |Novice             |Novice             |Novice             |Georgia DanceSport Amateur-2019|
+    |Prechamp-F |Senior1-35 |F  |Student|Amateur|35   |Pre Championship   |Pre Championship   |Pre Championship   |Pre Championship   |Georgia DanceSport Amateur-2019|
+    |Prechamp-M |Senior1-35 |M  |Student|Amateur|35   |Pre Championship   |Pre Championship   |Pre Championship   |Pre Championship   |Georgia DanceSport Amateur-2019|
+    |Pro-F      |Adult-0    |F  |Teacher|Professional|0|Professional      |Professional       |Professional       |Professional       |Georgia DanceSport ProAm-2019|
+    |Pro-M      |Adult-0    |M  |Teacher|Professional|0|Professional      |Professional       |Professional       |Professional       |Georgia DanceSport ProAm-2019|
     When I request "/api/sales/participant" with method "GET"
     Then the response code is 202
     And the response status line is Accepted
@@ -132,7 +132,7 @@ Feature:
     When I request "/api/sales/participant/3" with method "GET"
     Then the response code is "202"
     And the response status line is "Accepted"
-    And the response body is a JSON array of length "8"
+    And the response body is a JSON array of length "9"
     And the "Authorization" response header contains "Bearer "
     And the response body contains JSON:
     """
@@ -153,19 +153,19 @@ Feature:
 
   Scenario: I request information for non existent participant
     Given I have entered multiple participants:
-      |first      |last       |sex|status |type   |years|latin                   |standard              |rhythm              |smooth             |models|
-      |PreBronze-F|Baby-5     |F  |Student|Amateur|5    |Pre Bronze              |Pre Bronze            |Pre Bronze          |Pre Bronze         |ISTD Medal Exams-2019,Georgia DanceSport Amateur-2019|
-      |PreBronze-M|Baby-5     |M  |Student|Amateur|5    |Pre Bronze              |Pre Bronze            |Pre Bronze          |Pre Bronze         |ISTD Medal Exams-2019,Georgia DanceSport Amateur-2019|
-      |Silver-F   |Junior1-13 |F  |Student|Amateur|13   |Intermediate Silver     |Intermediate Silver   |Intermediate Silver |Intermediate Silver|ISTD Medal Exams-2019,Georgia DanceSport Amateur-2019,Georgia DanceSport ProAm-2019|
-      |Silver-M   |Junior1-13 |M  |Student|Amateur|13   |Intermediate Silver     |Intermediate Silver   |Intermediate Silver |Intermediate Silver|ISTD Medal Exams-2019,Georgia DanceSport Amateur-2019,Georgia DanceSport ProAm-2019|
-      |Gold-F     |Youth-16   |F  |Student|Amateur|16   |Full Gold               |Full Gold             |Full Gold           |Full Gold          |ISTD Medal Exams-2019,Georgia DanceSport Amateur-2019,Georgia DanceSport ProAm-2019|
-      |Gold-M     |Youth-16   |M  |Student|Amateur|16   |Full Gold               |Full Gold             |Full Gold           |Full Gold          |ISTD Medal Exams-2019,Georgia DanceSport Amateur-2019,Georgia DanceSport ProAm-2019|
-      |Novice-F   |Adult-30   |F  |Student|Amateur|30   |Novice                  |Novice                |Novice              |Novice             |Georgia DanceSport Amateur-2019|
-      |Novice-M   |Adult-30   |M  |Student|Amateur|30   |Novice                  |Novice                |Novice              |Novice             |Georgia DanceSport Amateur-2019|
-      |Prechamp-F |Senior1-35 |F  |Student|Amateur|35   |Pre Championship        |Pre Championship      |Pre Championship    |Pre Championship   |Georgia DanceSport Amateur-2019|
-      |Prechamp-M |Senior1-35 |M  |Student|Amateur|35   |Pre Championship        |Pre Championship      |Pre Championship    |Pre Championship   |Georgia DanceSport Amateur-2019|
-      |Pro-F      |Adult-0    |F  |Teacher|Professional|0|Professional           |Professional          |Professional        |Professional       |Georgia DanceSport ProAm-2019|
-      |Pro-M      |Adult-0    |M  |Teacher|Professional|0|Professional           |Professional          |Professional        |Professional       |Georgia DanceSport ProAm-2019|
+      |first      |last      |sex|status |type   |years|latin              |standard           |rhythm             |smooth             |models|
+      |PreBronze-F|Baby-5    |F  |Student|Amateur|5    |Pre Bronze         |Pre Bronze         |Pre Bronze         |Pre Bronze         |ISTD Medal Exams-2019,Georgia DanceSport Amateur-2019|
+      |PreBronze-M|Baby-5    |M  |Student|Amateur|5    |Pre Bronze         |Pre Bronze         |Pre Bronze         |Pre Bronze         |ISTD Medal Exams-2019,Georgia DanceSport Amateur-2019|
+      |Silver-F   |Junior1-13|F  |Student|Amateur|13   |Intermediate Silver|Intermediate Silver|Intermediate Silver|Intermediate Silver|ISTD Medal Exams-2019,Georgia DanceSport Amateur-2019,Georgia DanceSport ProAm-2019|
+      |Silver-M   |Junior1-13|M  |Student|Amateur|13   |Intermediate Silver|Intermediate Silver|Intermediate Silver|Intermediate Silver|ISTD Medal Exams-2019,Georgia DanceSport Amateur-2019,Georgia DanceSport ProAm-2019|
+      |Gold-F     |Youth-16  |F  |Student|Amateur|16   |Full Gold          |Full Gold          |Full Gold          |Full Gold          |ISTD Medal Exams-2019,Georgia DanceSport Amateur-2019,Georgia DanceSport ProAm-2019|
+      |Gold-M     |Youth-16  |M  |Student|Amateur|16   |Full Gold          |Full Gold          |Full Gold          |Full Gold          |ISTD Medal Exams-2019,Georgia DanceSport Amateur-2019,Georgia DanceSport ProAm-2019|
+      |Novice-F   |Adult-30  |F  |Student|Amateur|30   |Novice             |Novice             |Novice             |Novice             |Georgia DanceSport Amateur-2019|
+      |Novice-M   |Adult-30  |M  |Student|Amateur|30   |Novice             |Novice             |Novice             |Novice             |Georgia DanceSport Amateur-2019|
+      |Prechamp-F |Senior1-35|F  |Student|Amateur|35   |Pre Championship   |Pre Championship   |Pre Championship   |Pre Championship   |Georgia DanceSport Amateur-2019|
+      |Prechamp-M |Senior1-35|M  |Student|Amateur|35   |Pre Championship   |Pre Championship   |Pre Championship   |Pre Championship   |Georgia DanceSport Amateur-2019|
+      |Pro-F      |Adult-0   |F  |Teacher|Professional|0|Professional      |Professional       |Professional       |Professional       |Georgia DanceSport ProAm-2019|
+      |Pro-M      |Adult-0   |M  |Teacher|Professional|0|Professional      |Professional       |Professional       |Professional       |Georgia DanceSport ProAm-2019|
     When I request "/api/sales/participant/13" with method "GET"
     Then the response code is "404"
     And the response status line is "Not Found"
@@ -173,7 +173,8 @@ Feature:
     And the response body contains JSON:
     """
     {
-      "message": "No participant exists with id:13"
+      "id": 13,
+      "status": "fail",
+      "message": "Participant not found."
     }
     """
-

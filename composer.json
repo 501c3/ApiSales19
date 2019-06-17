@@ -6,6 +6,7 @@
         "ext-ctype": "*",
         "ext-iconv": "*",
         "ext-json": "^1.6",
+        "braintree/braintree_php": "^4.1",
         "friends-of-behat/symfony-extension": "^2.0",
         "lexik/jwt-authentication-bundle": "^2.6",
         "scienta/doctrine-json-functions": "^4.0",

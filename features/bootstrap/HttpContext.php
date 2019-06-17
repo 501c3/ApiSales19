@@ -1,11 +1,6 @@
 <?php
-
-
-use App\Entity\Sales\User;
 use Behat\Behat\Hook\Scope\BeforeScenarioScope;
 use App\AppException;
-use Behat\Behat\Hook\Scope\BeforeFeatureScope;
-
 use Behat\Gherkin\Node\PyStringNode;
 use Behat\Behat\Context\Context;
 use Symfony\Component\HttpFoundation\Request;
@@ -39,22 +34,14 @@ class HttpContext implements Context
         $this->kernel = $kernel;
     }
 
-    /**
-     * @BeforeFeature
-     * @param BeforeFeatureScope $scope
-     * @throws Exception
-     */
-    public static function beforeFeature(BeforeFeatureScope $scope)
-    {
-        if($scope->getFeature()->getFile()=="features/register.feature") {
-            self::setupChannelInventory();
-        }
-    }
 
-    /** @BeforeScenario */
+    /** @BeforeScenario
+     * @param BeforeScenarioScope $scope
+     */
     public function beforeScenario(BeforeScenarioScope $scope)
     {
         $environment = $scope->getEnvironment();
+        /** @noinspection PhpUndefinedMethodInspection */
         $this->databaseContext = $environment->getContext('DatabaseContext');
         #$entityManager = $this->databaseContext->getEntityManagerSales();
     }
@@ -153,7 +140,8 @@ class HttpContext implements Context
     public function theResponseBodyContainsJson(PyStringNode $node)
     {
         $found=json_decode($this->response->getContent(),true);
-        $expected = json_decode($node->getRaw(),true);
+        $expected =json_decode($node->getRaw(),true);
+        $error = error_get_last();
         foreach($expected as $key=>$expectedValue) {
             if(!isset($found[$key])) {
                 throw new AppException("No value was found for $key");
@@ -167,18 +155,27 @@ class HttpContext implements Context
 
 
     /**
-     * @Given I have recently registered or logged In
+     * @Then the response body contains JSON Array:
+     * @param PyStringNode $node
+     * @throws AppException
      */
-    public function iHaveRecentlyRegisteredOrLoggedIn()
+    public function theResponseBodyContainsJsonArray(PyStringNode $node)
     {
-        $repository = $this->entityManagerSales->getRepository(User::class);
+        $found=json_decode($this->response->getContent(),true);
+        $expected = json_decode($node->getRaw(),true);
+        if($found!=$expected) {
+            throw new AppException("Found JSON response does not match expected.");
+        }
 
     }
 
+
     /**
      * @Then the response body contains :field
+     * @param string $field
+     * @throws AppException
      */
-    public function theResponseBodyContains($field)
+    public function theResponseBodyContains(string $field)
     {
         $content = json_decode($this->response->getContent(),true);
         if(!isset($content[$field])) {
@@ -188,8 +185,10 @@ class HttpContext implements Context
 
     /**
      * @Then the response body is a JSON array of length :expectedCount
+     * @param int $expectedCount
+     * @throws AppException
      */
-    public function theResponseBodyIsAJsonArrayOfLength($expectedCount)
+    public function theResponseBodyIsAJsonArrayOfLength(int $expectedCount)
     {
         $content = json_decode($this->response->getContent(),true);
         $foundCount = count($content);
@@ -199,9 +198,10 @@ class HttpContext implements Context
     }
 
 
-
     /**
      * @Then response list entry has field :name
+     * @param $name
+     * @throws AppException
      */
     public function responseListEntryHasField($name)
     {
@@ -216,8 +216,10 @@ class HttpContext implements Context
 
     /**
      * @Then the response body contains field for :name
+     * @param string $name
+     * @throws AppException
      */
-    public function theResponseBodyContainsFieldFor($name)
+    public function theResponseBodyContainsFieldFor(string $name)
     {
         $content = json_decode($this->response->getContent(),true);
         if(!isset($content[$name])) {
@@ -228,6 +230,7 @@ class HttpContext implements Context
 
     /**
      * @Given the participant request body is:
+     * @param PyStringNode $node
      */
     public function theParticipantRequestBodyIs(PyStringNode $node)
     {
@@ -248,6 +251,83 @@ class HttpContext implements Context
     public function getHttpRequestBody()
     {
         return $this->requestBody;
+    }
+
+
+    /**
+     * @Then available :field in :model for :level
+     * @param $field
+     * @param $model
+     * @param $level
+     * @throws AppException
+     */
+    public function availableInFor($field, $model, $level)
+    {
+        $content = json_decode($this->response->getContent(),true);
+        $selections = $content['selections'][$model];
+        $missingEvents =  $this->hasFieldAtLevel($field,$selections,$level);
+        if(is_array($missingEvents)){
+            foreach($missingEvents as $substyle=>$found) {
+                throw new AppException("Substyle $substyle has no events with $field $level");
+            }
+        }
+    }
+
+    private function hasFieldAtLevel(string $field, $selections, $level){
+        $eventFound=[];
+        foreach($selections as $substyle=>$events) {
+           $eventFound[$substyle]=false;
+           foreach($events as $event) {
+               if($event[$field]==$level){
+                   $eventFound[$substyle]=true;
+               }
+           }
+        }
+        foreach($eventFound as $substyle=>$found) {
+            if(!$found) {
+                return $eventFound;
+            }
+        }
+        return true;
+    }
+
+
+    /**
+     * @Then not available :field in :model for :level
+     * @param string $field
+     * @param string $model
+     * @param string $level
+     * @throws AppException
+     */
+    public function notAvailableInFor(string $field, string $model, string $level)
+    {
+        $content = json_decode($this->response->getContent(),true);
+        $selections = $content['selections'][$model];
+        $badSelections =  $this->hasNotFieldAtLevel($field,$selections,$level);
+        if(is_string($badSelections)){
+            throw new AppException("Substyles $badSelections should not have events with $field $level");
+        }
+
+    }
+
+    private function hasNotFieldAtLevel(string $field, $selections, $level)
+    {
+        $eventFound=[];
+        foreach($selections as $substyle=>$events) {
+            $eventFound[$substyle]=false;
+            foreach($events as $event) {
+                if($event[$field]==$level){
+                    $eventFound[$substyle]=true;
+                }
+            }
+        }
+        $badSelections = [];
+        foreach($eventFound as $substyle=>$found) {
+            if($found) {
+                $badSelections[]=$substyle;
+            }
+        }
+        return count($badSelections)?implode(',', $badSelections):false;
     }
 
 }
